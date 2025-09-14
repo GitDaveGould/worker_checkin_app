@@ -4,11 +4,10 @@ build:
   commands:
     build:
       - echo "Build started on `date`"
-      - echo "Building the Docker image..."
-      - docker build -t worker-checkin-app .
+      - echo "Building Docker image for Worker Check-in App..."
 run:
   runtime-version: latest
-  command: npm start
+  command: node dist/server/index.js
   network:
     port: 3001
     env: PORT
