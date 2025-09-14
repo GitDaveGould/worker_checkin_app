@@ -1,0 +1,128 @@
+# SAVAGE DOCKER DEPLOYMENT CONFIGURATION!!! 🐳🔥🐳
+
+version: '3.8'
+
+services:
+  # DATABASE - THE FOUNDATION OF DESTRUCTION!!! 💀
+  postgres:
+    image: postgres:15-alpine
+    container_name: worker-checkin-db
+    environment:
+      POSTGRES_DB: worker_checkin
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./server/migrations:/docker-entrypoint-initdb.d
+    ports:
+      - "5432:5432"
+    networks:
+      - worker-checkin-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # REDIS CACHE - SPEED OF LIGHTNING!!! ⚡
+  redis:
+    image: redis:7-alpine
+    container_name: worker-checkin-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - worker-checkin-network
+    restart: unless-stopped
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # SERVER - THE BEAST UNLEASHED!!! 🦾
+  server:
+    build:
+      context: .
+      dockerfile: Dockerfile.server
+    container_name: worker-checkin-server
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: worker_checkin
+      DB_USER: postgres
+      DB_PASSWORD: ${DB_PASSWORD:-postgres}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      JWT_SECRET: ${JWT_SECRET:-your-super-secret-jwt-key-change-in-production}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin123}
+    ports:
+      - "3001:3001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - worker-checkin-network
+    restart: unless-stopped
+    volumes:
+      - ./logs:/app/logs
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # CLIENT - THE INTERFACE OF POWER!!! 🎭
+  client:
+    build:
+      context: .
+      dockerfile: Dockerfile.client
+    container_name: worker-checkin-client
+    environment:
+      VITE_API_URL: ${API_URL:-http://localhost:3001/api}
+    ports:
+      - "80:80"
+    depends_on:
+      - server
+    networks:
+      - worker-checkin-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # NGINX REVERSE PROXY - THE GATEWAY!!! 🚪
+  nginx:
+    image: nginx:alpine
+    container_name: worker-checkin-nginx
+    ports:
+      - "443:443"
+      - "8080:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - client
+      - server
+    networks:
+      - worker-checkin-network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  worker-checkin-network:
+    driver: bridge
