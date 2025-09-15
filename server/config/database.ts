@@ -17,8 +17,10 @@ const poolConfig = {
   // QUERY TIMEOUT
   query_timeout: 30000, // 30 second query timeout
   
-  // SSL FOR PRODUCTION
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+ // SSL Configuration - RDS requires SSL
+  ssl: process.env.DB_HOST?.includes('rds.amazonaws.com') ? {
+    rejectUnauthorized: false
+  } : false,
 };
 
 export const pool = new Pool(poolConfig);

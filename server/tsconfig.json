@@ -4,6 +4,9 @@
     "outDir": "../dist/server",
     "rootDir": "..",
     "baseUrl": "..",
+     "noImplicitAny": false,
+      "skipLibCheck": true,
+      "noEmit": false,
     "paths": {
       "@shared/*": ["shared/*"]
     }
